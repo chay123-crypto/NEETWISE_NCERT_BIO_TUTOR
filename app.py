@@ -53,4 +53,4 @@ def explanation():
         yield "data: [DONE]\n\n"
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
 if __name__=="__main__":
-    app.run(debug=False)
+    app.run(host="0.0.0.0",port=7860)
