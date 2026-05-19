@@ -1,0 +1,56 @@
+from flask import Flask,request,render_template,Response,stream_with_context,jsonify
+from vectorstore import build_or_load
+from retriever import llm_load, retrievers_load
+from chains import misconception_detection,answer_with_cite
+import json
+
+app=Flask(__name__)
+embeddings,vectorstore,all_docs=build_or_load()
+llm=llm_load()
+ce,retriever=retrievers_load(all_docs, vectorstore)
+
+@app.route('/')
+def home():
+    languages=['English','Hinglish']
+    mode=['Normal','Simple']
+    return render_template("index.html",languages=languages,answer_mode=mode)
+
+@app.route('/misconception',methods=['POST'])
+def misconception():
+    input=request.form['understanding']
+    if not input.strip():
+        return jsonify({"error":"No input provided"}),400
+    feedback=misconception_detection(input,retriever,ce,llm)
+    
+    def generate():
+        for token in feedback:
+            if hasattr(token, 'content'):
+                yield f"data: {json.dumps({'token':token.content})}\n\n"
+            else:
+                yield f"data: {json.dumps({'token':token})}\n\n"
+        yield "data: [DONE]\n\n"
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+@app.route("/explain",methods=['POST'])
+def explanation():
+    lang=request.form.get('language','English')
+    answer_mode=request.form.get('answer_mode','Normal')
+    input=request.form['questionInput']
+    if not input.strip():
+        return jsonify({"error":"No input provided"}),400
+    answer,citations=answer_with_cite(input,retriever,ce,llm,lang=lang,answer_mode=answer_mode)
+    languages=['English','Hinglish']
+    answer_mode=['Normal','Simple']
+    lang=lang if lang in languages else 'English'
+
+    def generate():
+        full_answer=""
+        for token in answer:
+            full_answer+=token
+            yield f"data: {json.dumps({'token': token})}\n\n"
+        if citations  and 'clarify' not in full_answer.lower() and 'not available' not in full_answer.lower():
+            yield f"data: {json.dumps({'citations': citations})}\n\n"
+        yield "data: [DONE]\n\n"
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+if __name__=="__main__":
+    app.run(debug=False)

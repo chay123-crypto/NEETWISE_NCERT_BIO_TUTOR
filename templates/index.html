@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<head>
+    <title>NeetWise NCERT Biology Tutor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body style="background-color: black;">
+     <div class="container mt-5">
+        <h1 class="text-left mb-4" Style="color: orange;">🍃 NeetWise NCERT Biology Tutor</h1>
+        <h6 class="text-left mb-4 ms-4" Style="color: whitesmoke;">Class 11 & 12 | NeetPrep | Multilingual</h6>
+     </div>
+    <div class="row">
+        <div class="col-4">
+            <div class="card p-4 m-5 me-1 mt-2" style="background-color: beige;">
+            <form id="mainForm"action="/explain" method="POST">
+                <div class="border rounded p-2">
+                    <div class="form-label fw-bold">Mode</div>
+                    <div class="d-flex gap-5 border rounded p-2">
+                        <div class="form-check">
+                        <input class="form-check-input" type="radio" name="Mode" value="Explain" checked onclick="changeMode('Explain')">
+                        <label class="form-check-label">Explanation</label>
+                        </div>
+                        <div class="form-check">
+                        <input class="form-check-input" type="radio" name="Mode" value="Misconception" onclick="changeMode('Misconception')">
+                        <label class="form-check-label">Check Misconception</label>
+                        </div>
+                    </div>
+                </div>
+                <div id='langSection' class="border rounded p-2 mt-3">
+                    <p class="fw-bold">Language</p>
+                    <select class="form-select mb-2" name="language">
+                        {% for lang in languages %}
+                        <option value="{{ lang }}">{{ lang }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id='modeSection' class="border rounded p-2 mt-3">
+                    <p class="fw-bold">Answer Mode</p>
+                    <select class="form-select mb-2" name="answer_mode">
+                        {% for mode in answer_mode %}
+                        <option value="{{ mode }}">{{ mode }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="border rounded p-2 mt-3">
+                    <div id="questionLabel" class="form-label fw-bold">Question</div>
+                    <input type="text" class="form-control" name="questionInput" id="ques" placeholder="Enter your doubt....(Type in English)" maxlength="500">
+                    <textarea class="form-control" name="understanding" id="textArea" placeholder="Enter your understanding...." style="display:none; height:150px;" maxlength="1000"></textarea>
+                </div>    
+                <div class="row">
+                    <div class="col-6">
+                        <button type="submit" class="btn fw-bold m-3 p-2 ms-1 align-center" style="background-color: orangered; color: rgb(24, 23, 23); width:150px;">Submit</button>
+                    </div>
+                    <div class="col-6">
+                        <button type="reset" class="btn fw-bold m-3 p-2 ms-1 align-center" style="background-color: rgb(29, 104, 104); color:rgb(184, 194, 202); width:150px;">Clear</button>
+                    </div>
+                </div>
+                </form>
+            </div>      
+        </div>
+        <div class="col-8">
+            <div class="card p-4 m-5 ms-1 mt-2" style="background-color: beige;">
+                <div id="loader" style="display:none;">
+                        <div class="spinner-border" style="color:red;" role="status"></div>
+                        <p style="color:brown;">Thinking...</p>
+                </div>
+                <h5 class="card-title">Explanation / Feedback</h5> 
+                <div class="border rounded p-2 mt-1">
+                    <div class="border rounded p-2 mt-1" name="answer" id="answerText" style="background-color:white; height:500px;white-space: pre-wrap; overflow-y: auto">
+                        {% if output %}
+                            {{output}}
+                        {% endif %}
+                    </div>
+                </div>
+                <h5 class="card-title mt-3">Sources</h5> 
+                <div class="border rounded p-2 mt-1">
+                    <div class="border rounded p-2 mt-1" name="sources" style="background-color:white; height:200px; overflow-y: auto;">
+                        {% if citations%}
+                            {% for chapter,page in citations %}
+                                 <p>NCERT {{chapter}} - Page No {{page}}</p>
+                            {% endfor %}
+                        {% else %}
+                            <p>No citations in this mode...</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>          
+    </div>
+</body>
+</html>
+<script>
+    function changeMode(mode) {
+        form=document.getElementById('mainForm')
+        textInput=document.getElementById('ques')
+        label=document.getElementById('questionLabel')
+        textArea=document.getElementById('textArea')
+        langSection=document.getElementById('langSection')
+        modeSection=document.getElementById('modeSection')
+        text=document.getElementById('answerText')
+        source=document.querySelector('[name="sources"]')
+
+        textInput.value=''   
+        textArea.value='' 
+        source.innerHTML=''
+        text.innerHTML=''
+
+        if (mode=='Explain') {
+            form.action='/explain'
+            label.textContent="Question"
+            textInput.style.display='block'
+            textArea.style.display='none'
+            langSection.style.display='block'
+            modeSection.style.display='block'
+            source.style.display='block'
+
+        } else {
+            form.action='/misconception'
+            label.textContent="Your Understanding"
+            textInput.style.display='none'
+            textArea.style.display='block'
+            langSection.style.display='none'
+            modeSection.style.display='none'
+            source.style.display='none'
+        }
+    }
+    changeMode('Explain');
+    
+    document.getElementById('mainForm').addEventListener('submit',function(e)
+    {
+        e.preventDefault()
+        const form=new FormData(this)
+        document.getElementById('answerText').innerHTML=''
+        document.querySelector('[name="sources"]').innerHTML=''
+        const loader=document.getElementById('loader') 
+        loader.style.display='block' 
+        let buffer=''
+        
+        if(document.getElementById('mainForm').action.includes('/explain'))
+        {
+            fetch('/explain',{method :'POST',body: form}).then(
+                res=>{
+                    if(res.status===400) 
+                    {
+                    res.json().then(data=>{
+                        document.getElementById('answerText').innerHTML=data.error
+                        document.querySelector('[name="sources"]').innerHTML="NIL"
+                        document.getElementById('loader').style.display='none'
+                    })
+                       return
+                   }
+                    const reader=res.body.getReader()
+                    const decoder=new TextDecoder()
+
+                    function read()
+                    {
+                        reader.read().then(({done,value})=>{
+                            if(done)
+                            {
+                                return
+                            }
+                            const chunk=decoder.decode(value)
+                            const lines=chunk.split('\n\n').filter(l=>l!="")
+                            for(const line of lines)
+                            {
+                                const raw=line.replace('data: ','').trim()
+                                if(raw=='[DONE]')
+                               {
+                                    answerbox.innerHTML=marked.parse(buffer).replace(/\n/g, '<br>')
+                                    return
+                               }
+                            const data=JSON.parse(raw)
+                            if(data.token)
+                            {
+                                loader.style.display = 'none' 
+                                answerbox=document.getElementById('answerText')
+                                buffer+=data.token
+                                answerbox.innerHTML=buffer.replace(/\n/g, '<br>')
+                            }
+                            if(data.citations)
+                            {
+                                sourcebox=document.querySelector('[name="sources"]')
+                                for(const[ch,page] of data.citations)
+                                {
+                                    sourcebox.innerHTML+=('<p>NCERT '+ch+' - Page No: '+page+'</p>')
+                                }
+                            }
+                            }
+                            read()
+                        })
+                    } 
+                    read() 
+                }  
+            )
+        }
+        else
+        {
+            fetch('/misconception',{method :'POST',body: form}).then(
+                res=>{
+                    if(res.status===400) 
+                    {
+                    res.json().then(data=>{
+                        document.getElementById('answerText').innerHTML=data.error
+                        document.querySelector('[name="sources"]').innerHTML="NIL"
+                        document.getElementById('loader').style.display='none'
+                    })
+                       return
+                   }
+                    const reader=res.body.getReader()
+                    const decoder=new TextDecoder()
+
+                    function read()
+                    {
+                        reader.read().then(({done,value})=>{
+                            if(done)
+                            {
+                                return
+                            }
+                            const chunk=decoder.decode(value)
+                            const lines=chunk.split('\n\n').filter(l=>l!="")
+                            for(const line of lines)
+                            {
+                                const raw=line.replace('data: ','').trim()
+                                if(raw=='[DONE]')
+                            {
+                                answerbox.innerHTML=marked.parse(buffer)
+                                return
+                            }
+                            const data=JSON.parse(raw)
+                            if(data.token)
+                            {
+                                loader.style.display = 'none' 
+                                answerbox=document.getElementById('answerText')
+                                buffer+=data.token
+                                answerbox.innerHTML=buffer
+                            }
+                            }
+                            read()
+                        })
+                    } 
+                    read() 
+                }  
+            )
+        }  
+    }) 
+</script>
